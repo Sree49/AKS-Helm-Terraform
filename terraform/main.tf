@@ -15,17 +15,17 @@ module "acr" {
 
 module "aks" {
     source = "./modules/aks"
-    providers = {
-        helm = helm
-    }
     RG_Name = var.RG_Name
     RG_Location = var.RG_Location
     container-id = module.acr.container-id
-    depends_on = [module.rg]
+    depends_on = [module.acr]
 }
 
 module "helm" {
     source = "./modules/helm"
+    providers = {
+        helm = helm
+    }
     image_repository = "${module.acr.container-name}/gamebox"
     depends_on = [module.aks]
 }
