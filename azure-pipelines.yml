@@ -67,6 +67,13 @@ stages:
           $(Build.SourcesDirectory)/app.jar
         displayName: 'Rename JAR'
 
+      - task: CopyFiles@2
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)'
+          Contents: '**/boardgame'
+          TargetFolder: '$(build.artifactstagingdirectory)'
+
+      
 
       - task: PublishBuildArtifacts@1
         inputs:
@@ -186,30 +193,21 @@ stages:
             docker push $(acrname).azurecr.io/$(imagename):$(tag)
             docker push $(acrname).azurecr.io/$(imagename):latest
     
-      
-      - task: KubernetesManifest@1
-        inputs:
-          action: 'deploy'
-          connectionType: 'azureResourceManager'
-          azureSubscriptionConnection: 'azure-connection'
-          azureResourceGroup: $(rg_name)
-          kubernetesCluster: $(aks_name)
-          useClusterAdmin: true
-          manifests: '**/deployment-service.yaml'
 
       - task: HelmInstaller@1
         inputs:
           helmVersionToInstall: 'latest'
 
-      
       - task: HelmDeploy@1
         inputs:
           connectionType: 'Azure Resource Manager'
           azureSubscription: 'azure-connection'
-          azureResourceGroup: $(rg_name)
-          kubernetesCluster: $(aks_name)
+          azureResourceGroup: '$(rg_name)'
+          kubernetesCluster: '$(aks_name)'
           useClusterAdmin: true
-          command: 'create'
-          chartName: 'boardgame'
+          command: 'install'
+          chartType: 'FilePath'
+          chartPath: '$(Pipeline.Workspace)/drop/target/boardgame/'
+      
 
 
