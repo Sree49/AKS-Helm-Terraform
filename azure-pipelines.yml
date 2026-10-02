@@ -196,3 +196,20 @@ stages:
           kubernetesCluster: $(aks_name)
           useClusterAdmin: true
           manifests: '**/deployment-service.yaml'
+
+      - task: HelmInstaller@1
+        inputs:
+          helmVersionToInstall: 'latest'
+
+      
+      - task: HelmDeploy@1
+        inputs:
+          connectionType: 'Azure Resource Manager'
+          azureSubscription: 'azure-connection'
+          azureResourceGroup: $(rg_name)
+          kubernetesCluster: $(aks_name)
+          useClusterAdmin: true
+          command: 'create'
+          chartName: 'boardgame'
+
+
