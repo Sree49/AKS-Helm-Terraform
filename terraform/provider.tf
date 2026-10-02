@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "5.6.0"
     }
+helm = {
+source = "hashicorp/helm"
+version = "~>3.0"
+}
   }
 }
 
