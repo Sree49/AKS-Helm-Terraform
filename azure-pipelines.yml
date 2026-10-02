@@ -1,0 +1,198 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+variables:
+  imagename: gamebox
+  tag: $(Build.BuildId)
+
+
+stages:
+- stage: Build
+  displayName: 'Build Java Project'
+  jobs:
+    - job:
+      displayName: 'Maven Build and Push Artifacts'
+      pool:
+        name: 'sreenija'
+      steps:
+      - task: SonarQubePrepare@8
+        inputs:
+          SonarQube: 'sonarqube'
+          scannerMode: 'other'
+          extraProperties: |
+            # Additional properties that will be passed to the scanner, 
+            # Put one key=value per line, example:
+            # sonar.exclusions=**/*.bin
+            sonar.java.binaries=.
+            sonar.projectKey=Boardgame
+            sonar.projectName=Boardgame
+      - task: Maven@4
+        env:
+          JAVA_HOME_17_X64: /usr/lib/jvm/java-17-openjdk-amd64
+        inputs:
+          azureSubscription: 'azure-connection'
+          mavenPomFile: 'pom.xml'
+          publishJUnitResults: true
+          testResultsFiles: '**/surefire-reports/TEST-*.xml'
+          javaHomeOption: 'JDKVersion'
+          jdkVersionOption: 1.17
+          goals: 'clean package'
+          jdkArchitectureOption: x64
+          mavenVersionOption: 'Default'
+          mavenOptions: '-Xmx3072m'
+          mavenAuthenticateFeed: false
+          effectivePomSkip: false
+          sonarQubeRunAnalysis: true
+          sqMavenPluginVersionChoice: 'latest'
+    
+      - task: SonarQubePublish@8
+        inputs:
+          pollingTimeoutSec: '300'
+      
+      - task: CopyFiles@2
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)'
+          Contents: 'deployment-service.yaml'
+          TargetFolder: '$(build.artifactstagingdirectory)'
+
+      - task: CopyFiles@2
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)'
+          Contents: '**/target/*.?(war|jar)'
+          TargetFolder: '$(build.artifactstagingdirectory)'
+      - script: |
+          cp $(Build.SourcesDirectory)/target/database_service_project-0.0.7-SNAPSHOT.jar \
+          $(Build.SourcesDirectory)/app.jar
+        displayName: 'Rename JAR'
+
+
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'drop'
+          publishLocation: 'Container'
+
+- stage: Provision
+  displayName: 'Provision ACR and AKS'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+    - job: 'Provision_Infra'
+      displayName: 'Provision_Infra'
+      pool:
+        vmImage: ubuntu-latest
+      steps:
+
+        - task: DownloadBuildArtifacts@1
+          inputs:
+            buildType: 'current'
+            downloadType: single
+            artifactName: drop
+            downloadPath: $(Pipeline.Workspace)
+            
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+            backendServiceArm: 'azure-connection'
+            backendAzureRmResourceGroupName: 'rg'
+            backendAzureRmStorageAccountName: 'tfstatefilestore1678'
+            backendAzureRmContainerName: 'tfstate-container'
+            backendAzureRmKey: 'terraform.tfstate'
+
+
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+            command: 'validate'
+
+        
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+            command: 'plan'
+            environmentServiceNameAzureRM: 'azure-connection'
+
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+            command: 'apply'
+            commandOptions: '-auto-approve'
+            environmentServiceNameAzureRM: 'azure-connection'
+
+      
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: 'azure-connection'
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+            inlineScript: |
+              terraform output
+              aks_name=$(terraform output -raw aks_name)
+              ACR_NAME=$(terraform output -raw registry_name)
+              rg_name=$(terraform output -raw rg_name)
+              echo "##vso[task.setvariable variable=acrname;isOutput=true]$ACR_NAME"
+              echo "##vso[task.setvariable variable=aks_name;isOutput=true]$aks_name"
+              echo "##vso[task.setvariable variable=rg_name;isOutput=true]$rg_name"
+          name: setvariable
+
+- stage: 'Deploy'
+  displayName: 'Push image to ACR and Deploy code to Kubernetes'
+  dependsOn: Provision
+  condition: succeeded()
+  jobs:
+    - job:
+      displayName: 'Build Image'
+      pool:
+        vmImage: ubuntu-latest
+      variables:
+        acrname: $[ stageDependencies.Provision.Provision_Infra.outputs['setvariable.acrname'] ]
+        aks_name: $[ stageDependencies.Provision.Provision_Infra.outputs['setvariable.aks_name'] ]
+        rg_name: $[ stageDependencies.Provision.Provision_Infra.outputs['setvariable.rg_name'] ]
+      steps:
+      - task: DownloadBuildArtifacts@1
+        inputs:
+          buildType: 'current'
+          downloadType: single
+          artifactName: drop
+          downloadPath: $(Pipeline.Workspace)
+      - task: AzureCLI@3
+        inputs:
+          connectionType: 'azureRM'
+          azureSubscription: 'azure-connection'
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            echo "ACR Name is : $(acrname)"
+           
+
+            echo "Checking drop folder"
+            find $(Pipeline.Workspace) -type f | grep ".jar"
+            cp $(Pipeline.Workspace)/drop/target/*.jar app.jar
+            az acr login --name $(acrname)
+            docker build -t $(acrname).azurecr.io/$(imagename):$(tag) .
+            docker build -t $(acrname).azurecr.io/$(imagename):latest .
+            docker push $(acrname).azurecr.io/$(imagename):$(tag)
+            docker push $(acrname).azurecr.io/$(imagename):latest
+    
+      
+      - task: KubernetesManifest@1
+        inputs:
+          action: 'deploy'
+          connectionType: 'azureResourceManager'
+          azureSubscriptionConnection: 'azure-connection'
+          azureResourceGroup: $(rg_name)
+          kubernetesCluster: $(aks_name)
+          useClusterAdmin: true
+          manifests: '**/deployment-service.yaml'
