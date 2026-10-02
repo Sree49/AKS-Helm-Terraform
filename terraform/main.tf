@@ -15,6 +15,9 @@ module "acr" {
 
 module "aks" {
     source = "./modules/aks"
+    providers = {
+        helm = helm
+    }
     RG_Name = var.RG_Name
     RG_Location = var.RG_Location
     container-id = module.acr.container-id
