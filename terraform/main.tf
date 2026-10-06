@@ -21,11 +21,4 @@ module "aks" {
     depends_on = [module.acr]
 }
 
-module "helm" {
-    source = "./modules/helm"
-    providers = {
-        helm = helm
-    }
-    image_repository = "${module.acr.container-name}/gamebox"
-    depends_on = [module.aks]
-}
+
