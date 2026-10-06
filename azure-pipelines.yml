@@ -54,7 +54,7 @@ stages:
       - task: CopyFiles@2
         inputs:
           SourceFolder: '$(System.DefaultWorkingDirectory)'
-          Contents: 'deployment-service.yaml'
+          Contents: '**/deployment-service.yaml'
           TargetFolder: '$(build.artifactstagingdirectory)'
 
       - task: CopyFiles@2
@@ -70,7 +70,7 @@ stages:
       - task: CopyFiles@2
         inputs:
           SourceFolder: '$(System.DefaultWorkingDirectory)'
-          Contents: 'helm/*'
+          Contents: 'helm/**'
           TargetFolder: '$(build.artifactstagingdirectory)'
 
       
