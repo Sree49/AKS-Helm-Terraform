@@ -196,7 +196,7 @@ stages:
 
       - task: HelmInstaller@1
         inputs:
-          helmVersionToInstall: 'latest'
+          helmVersionToInstall: '3.14.0'
 
       - task: HelmDeploy@1
         inputs:
@@ -205,7 +205,8 @@ stages:
           azureResourceGroup: '$(rg_name)'
           kubernetesCluster: '$(aks_name)'
           useClusterAdmin: true
-          command: 'install'
+          command: 'upgrade'
+          install: true
           chartType: 'FilePath'
           chartPath: '$(Pipeline.Workspace)/drop/target/boardgame/'
       
