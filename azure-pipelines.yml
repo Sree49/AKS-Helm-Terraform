@@ -208,7 +208,7 @@ stages:
           command: 'upgrade'
           install: true
           chartType: 'FilePath'
-          chartPath: '$(Pipeline.Workspace)/drop/target/boardgame/'
+          chartPath: '$(Pipeline.Workspace)/drop/helm/boardgame/'
       
 
 
