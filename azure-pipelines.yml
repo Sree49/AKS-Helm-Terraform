@@ -204,6 +204,7 @@ stages:
           azureSubscription: 'azure-connection'
           azureResourceGroup: '$(rg_name)'
           kubernetesCluster: '$(aks_name)'
+          releaseName: 'boardgame'
           useClusterAdmin: true
           command: 'upgrade'
           install: true
