@@ -209,6 +209,9 @@ stages:
           install: true
           chartType: 'FilePath'
           chartPath: '$(Pipeline.Workspace)/drop/helm/boardgame/'
+          arguments: >
+            --set image.repository=$(acrname).azurecr.io/$(imagename)
+            --set image.tag=$(tag)
       
 
 
