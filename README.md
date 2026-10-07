@@ -1,4 +1,4 @@
-Maven Project deployed to Kubernetes.
+Maven Project deployed to Kubernetes using Helm Charts.
 
 Project Build Maven:
 Used self hosted agent. \
