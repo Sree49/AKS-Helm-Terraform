@@ -19,6 +19,8 @@ target/
 *.iml
 *.ipr
 
+**/terraform.exe
+
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
