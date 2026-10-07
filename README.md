@@ -35,7 +35,7 @@ Remote backend: Provide storage account blob data contributor access to azure rm
 Dockerfile: to build image \
 <img src="./images/acr.png" alt="acr" width="400">
 
-deployment-service.yaml: to deploy kubernetes objects. \
+Helm folder: to deploy kubernetes objects using helm charts. \
 <img src="./images/kube-cluster.png" alt="kube-cluster" width="400">
 
 Azurerm service connection- to deploy resources. \
